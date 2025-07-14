@@ -34,7 +34,7 @@ def load_pts(file_path):
         print(f"real_num = {real_num}")
     return pcd
 
-root_path = '/data/senseauto/高速远距离数据/2025_01_10_10_03_03_AutoCollect_pilotGtRawParser'
+root_path = '/data/senseauto/高速远距离数据/2025_01_10_10_03_03_AutoCollect_pilotGtRawParser/'
 sensor_aligment_path = root_path + "/sensor_temporal_alignment.json/000.json"
 sensor_aligment = json.load(open(sensor_aligment_path))
 # sensor_aligment[1]
@@ -55,9 +55,8 @@ sensor_aligment = json.load(open(sensor_aligment_path))
 #   'front_right_radar': 'radar/front_right_radar/1736503211109603328.json',
 #   'rear_left_radar': 'radar/rear_left_radar/1736503211110062080.json',
 #   'rear_right_radar': 'radar/rear_right_radar/1736503211088619264.json'}}
-pcd_path = root_path + sensor_aligment['1736503211099999780']['top_center_lidar']
-# pcd_path = root_path + "/lidar/top_center_lidar/1725782003299999850.pcd"
-camera_path = root_path + sensor_aligment['1736503211099999780']['center_camera_fov30']
+pcd_path = root_path + sensor_aligment[1]['1736503211099999780']['top_center_lidar']
+camera_path = root_path + sensor_aligment[1]['1736503211099999780']['center_camera_fov30']
 intrinsic_path = root_path + "/calib/center_camera_fov30/center_camera_fov30-intrinsic.json"
 extrinsic_path = root_path + "/calib/center_camera_fov30/center_camera_fov30-to-car_center-extrinsic.json"
 # image_filled_path = root_path + "/camera/center_camera_fov30/1725782003299999850_filled.jpg"
@@ -67,60 +66,6 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
     pcd = o3d.io.read_point_cloud(pcd_path)
 
     points = np.asarray(pcd.points)
-
-# pcd_intensity = load_pts(pcd_path)
-# 二进制读取 pcd_path
-# 先定义一个对应该点格式的 dtype 
-    dtype = np.dtype([
-    ('x', 'float32'),
-    ('y', 'float32'),
-    ('z', 'float32'),
-    ('intensity', 'float32'),
-    ('ring', 'uint16'),
-    # 这里用 '<f8' 明确指定 little-endian 的 float64
-    ('timestamp', '<f8')
-])
-    with open(pcd_path, 'rb') as fin:
-        data = fin.read()
-        pts_points = np.frombuffer(data, dtype=dtype)
-        points_intensity = pts_points['intensity'].copy()
-        points_intensity[points_intensity>1e3] = 1e3
-        points_intensity[points_intensity<-1e3] = -1e3
-    # Assuming you have points_intensity from your existing code
-        min_intensity = float('inf')
-        max_intensity = float('-inf')
-        for intensity in points_intensity:
-            if intensity < min_intensity:
-                min_intensity = intensity
-            if intensity > max_intensity:
-                max_intensity = intensity
-        print(f"min_intensity = {min_intensity}, max_intensity = {max_intensity}")
-    # Normalize intensity values
-        invalid_mask = np.isnan(points_intensity)
-        points_intensity[invalid_mask] = 1
-        gap = max_intensity - min_intensity+1e-6
-        if np.isinf(gap):
-            gap = 1e-6
-        normalized = (points_intensity - min_intensity) / gap
-        normalized = np.clip(normalized, 0.0, 1.0)
-        import ipdb;ipdb.set_trace()
-        pcd_intensity_colors = np.zeros((points.shape[0], 3))
-        pcd_intensity_colors[:, 0] = normalized
-        pcd_intensity_colors[:, 1] = 255
-        pcd_intensity_colors[:, 2] = 255
-    # colors = pcd_intensity_colors
-        colors = cm.jet(normalized)
-# colors = np.asarray(pcd_intensity.colors)
-# import ipdb;ipdb.set_trace()
-
-    ply_path=pcd_path.replace('.pcd', '.ply')
-# o3d.io.write_point_cloud(ply_path, pcd)
-
-
-
-# o3d.visualization.draw_geometries([pcd])
-
-
 
     image0 = cv2.imread(camera_path)
     image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2RGB)
@@ -141,6 +86,11 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
     K=intrinsic_np
     points_h = np.concatenate((points, np.ones((points.shape[0], 1))), axis=1)
     points_camera_fov30 = (lidar2camera @ points_h.T).T
+    # import ipdb;ipdb.set_trace()
+    # 保存点云 fov30 camera 坐标系下的点云
+    pcd_camera_fov30 = o3d.geometry.PointCloud()    
+    pcd_camera_fov30.points = o3d.utility.Vector3dVector(points_camera_fov30[:, :3])
+    o3d.io.write_point_cloud(pcd_path.replace('.pcd', '_camera_fov30.ply'), pcd_camera_fov30)
 # points_camera_fov30 = (points_h.T).T
     points_camera_fov30 = points_camera_fov30[:, :3]/points_camera_fov30[:, 3:4]
 
@@ -148,8 +98,7 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
 
     pcd_camera_fov30 = o3d.geometry.PointCloud()
     pcd_camera_fov30.points = o3d.utility.Vector3dVector(points_camera_fov30)
-    pcd_camera_fov30.colors = o3d.utility.Vector3dVector(colors)
-    o3d.io.write_point_cloud(ply_path.replace('.ply', '_camera_fov30.ply'), pcd_camera_fov30)
+
     u = K[0, 0] * points_camera_fov30[:, 0] / points_camera_fov30[:, 2] + K[0, 2]
     v = K[1, 1] * points_camera_fov30[:, 1] / points_camera_fov30[:, 2] + K[1, 2]
     depth = points_camera_fov30[:, 2]
@@ -157,7 +106,7 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
 # import ipdb;ipdb.set_trace()
 # depth_Image.save(root_path + "/camera/center_camera_fov30/1725782003299999850_depth.jpg")
     min_depth=0
-    max_depth=1000
+    max_depth=1000000
     mask = np.zeros_like(depth.shape[0])
     mask = np.logical_and(depth > min_depth, depth < max_depth)
 # min_depth = depth[depth>0.5].min()
@@ -169,8 +118,8 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
 # normalized_depth = (depth - min_depth) / (max_depth - min_depth)
 
 # 使用 jet 颜色映射
-# color = cm.jet(normalized_depth)
-    color = cm.jet(normalized)
+    color = cm.jet(normalized_depth)
+    # color = cm.jet(normalized)
 
     u = u.astype(int)
     v = v.astype(int)
@@ -180,9 +129,9 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
 
     for x,y,d in zip(u,v,depth):
         if 0 <= x < image0.shape[1] and 0 <= y < image0.shape[0] and min_depth<d<max_depth:
-        # rgb_colors.append(image0[y, x])
+            rgb_colors.append(image0[y, x])
             i = y*image0.shape[1]+x
-            rgb_colors.append(colors[i])
+            # rgb_colors.append(colors[i])
 
         else:
             rgb_colors.append([0, 0, 0])  # 如果投影点超出图像边界，则赋予黑色
@@ -206,6 +155,7 @@ def proj_lidar(pcd_path, camera_path, intrinsic_path, extrinsic_path, image_fill
         os.makedirs(parent_dir)
 # 打开图片
     image = Image.fromarray(image_filled)
+    print(f"image_filled_path = {image_filled_path}\n")
 # 保存图片
     image.save(image_filled_path)
 
