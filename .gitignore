@@ -1,1 +1,9 @@
 *.mp4
+*.png
+*.npz
+*.ply
+*.pcd
+*.json
+*.txt
+*.log
+*.log.*

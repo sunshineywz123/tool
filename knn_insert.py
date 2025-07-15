@@ -10,14 +10,19 @@ import open3d as o3d
 import json
 import tqdm
 # 定义点云文件路径
-ply_path = '/data/2024_09_08_07_53_23_pathway_pilotGtParser/lidar/top_center_lidar/1725782003299999850_camera_fov30.ply'
-# 使用open3d读取点云文件
+root_path = '/data/senseauto/高速远距离数据/2025_01_10_10_03_03_AutoCollect_pilotGtRawParser/'
+sensor_aligment_path = root_path + "/sensor_temporal_alignment.json/000.json"
+sensor_aligment = json.load(open(sensor_aligment_path))
+for k,v in sensor_aligment[1].items():
+    ply_path = root_path + v['top_center_lidar'].replace('.pcd', '_camera_fov30.ply')
+    # 定义相机内参文件路径
+intrinsic_path = root_path + '/calib/center_camera_fov30/center_camera_fov30-intrinsic.json'
+
+#  使用open3d读取点云文件
 pcd = o3d.io.read_point_cloud(ply_path)
 # 将点云数据转换为numpy数组
 points = np.asarray(pcd.points)
 
-# 定义相机内参文件路径
-intrinsic_path = '/data/2024_09_08_07_53_23_pathway_pilotGtParser/calib/center_camera_fov30/center_camera_fov30-intrinsic.json'
 # 加载相机内参json文件
 intrinsic = json.load(open(intrinsic_path))
 # 获取相机内参矩阵
