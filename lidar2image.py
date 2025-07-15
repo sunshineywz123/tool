@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import struct
@@ -118,9 +119,6 @@ def process_all_pairs(root_path, intrinsic_key, extrinsic_key):
     for pair in sensor_aligment:
         pcd_path = os.path.join(root_path, pair["top_center_lidar"])
         camera_path = os.path.join(root_path, pair["center_camera_fov30"])
-        image_filled_key = os.path.splitext(
-            os.path.basename(pair["center_camera_fov30"])
-        )[0]
 
         proj_lidar(
             root_path=root_path,
@@ -128,15 +126,22 @@ def process_all_pairs(root_path, intrinsic_key, extrinsic_key):
             camera_path=camera_path,
             intrinsic_key=intrinsic_key,
             extrinsic_key=extrinsic_key,
-            image_filled_key=image_filled_key,
+            image_filled_key="depth",
         )
 
 
-root_path = (
-    "/data/senseauto/高速远距离数据/2025_01_10_10_03_03_AutoCollect_pilotGtRawParser/"
-)
-process_all_pairs(
-    root_path=root_path,
-    intrinsic_key="center_camera_fov30",
-    extrinsic_key="center_camera_fov30",
-)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process LiDAR and camera data.")
+    parser.add_argument(
+        "--root_path",
+        type=str,
+        required=True,
+        help="Root path to the dataset.",
+    )
+    args = parser.parse_args()
+
+    process_all_pairs(
+        root_path=args.root_path,
+        intrinsic_key="center_camera_fov30",
+        extrinsic_key="center_camera_fov30",
+    )
