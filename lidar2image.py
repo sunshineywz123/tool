@@ -31,17 +31,17 @@ def load_pts(file_path):
 
 
 def proj_lidar(
-    root_path, pcd_path, camera_path, intrinsic_key, extrinsic_key, image_filled_key
+    root_path, pcd_path, camera_path, image_filled_key
 ):
     intrinsic_path = os.path.join(
-        root_path, f"calib/{intrinsic_key}/{intrinsic_key}-intrinsic.json"
+        root_path, f"calib/center_camera_fov30/center_camera_fov30-intrinsic.json"
     )
     extrinsic_path = os.path.join(
-        root_path, f"calib/{intrinsic_key}/{intrinsic_key}-to-car_center-extrinsic.json"
+        root_path, f"calib/center_camera_fov30/center_camera_fov30-to-car_center-extrinsic.json"
     )
     image_filled_path = os.path.join(
         root_path,
-        f"camera/{intrinsic_key}_proj/{image_filled_key}_filled_intensity.jpg",
+        f"camera/center_camera_fov30_proj/{image_filled_key}_filled_intensity.jpg",
     )
 
     pcd = o3d.io.read_point_cloud(pcd_path)
@@ -54,7 +54,7 @@ def proj_lidar(
     extrinsic = json.load(open(extrinsic_path))
     intrinsic_np = np.array(intrinsic["value0"]["param"]["cam_K_new"]["data"])
     extrinsic_np = np.array(
-        extrinsic[f"{intrinsic_key}-to-car_center-extrinsic"]["param"]["sensor_calib"][
+        extrinsic["center_camera_fov30-to-car_center-extrinsic"]["param"]["sensor_calib"][
             "data"
         ]
     )
@@ -110,24 +110,25 @@ def proj_lidar(
     image.save(image_filled_path)
 
 
-def process_all_pairs(root_path, intrinsic_key, extrinsic_key):
+def process_all_pairs(root_path):
     sensor_aligment_path = os.path.join(
-        root_path, "sensor_temporal_alignment.json/000.json"
+        root_path, "sensor_temporal_alignment_json", "000.json"
     )
-    sensor_aligment = json.load(open(sensor_aligment_path))
+    with open(sensor_aligment_path, "r") as f:
+        sensor_aligment = json.load(f)
 
-    for pair in sensor_aligment:
-        pcd_path = os.path.join(root_path, pair["top_center_lidar"])
-        camera_path = os.path.join(root_path, pair["center_camera_fov30"])
+    for entry in sensor_aligment:
+        for timestamp, data in entry.items():
+            if "top_center_lidar" in data:
+                pcd_path = os.path.join(root_path, data["top_center_lidar"])
+                camera_path = os.path.join(root_path, data["center_camera_fov30"])
 
-        proj_lidar(
-            root_path=root_path,
-            pcd_path=pcd_path,
-            camera_path=camera_path,
-            intrinsic_key=intrinsic_key,
-            extrinsic_key=extrinsic_key,
-            image_filled_key="depth",
-        )
+                proj_lidar(
+                    root_path=root_path,
+                    pcd_path=pcd_path,
+                    camera_path=camera_path,
+                    image_filled_key=os.path.basename(pcd_path).replace(".pcd", ""),
+                )
 
 
 if __name__ == "__main__":
@@ -142,6 +143,4 @@ if __name__ == "__main__":
 
     process_all_pairs(
         root_path=args.root_path,
-        intrinsic_key="center_camera_fov30",
-        extrinsic_key="center_camera_fov30",
     )
